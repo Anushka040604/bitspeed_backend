@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { pool } from "./db";
+import contactRoutes from './routes/contact'
 
 dotenv.config();
 
@@ -10,6 +11,8 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Bitespeed Identity Service Running");
 });
+
+app.use("/", contactRoutes);
 
 const PORT = process.env.PORT || 3000;
 
