@@ -13,10 +13,10 @@ export const identifyContact = async (req: Request, res: Response) => {
   const connection = await pool.getConnection();
 
   try {
-    // 1️⃣ Find matching contacts
+   
     const [matchedRows]: any = await connection.query(
       `
-      SELECT * FROM Contact
+      SELECT * FROM contact
       WHERE (email = ? OR phoneNumber = ?)
       AND deletedAt IS NULL
       ORDER BY createdAt ASC
@@ -24,11 +24,11 @@ export const identifyContact = async (req: Request, res: Response) => {
       [email ?? null, phoneNumber ?? null]
     );
 
-    // 2️⃣ If none found → create primary
+
     if (matchedRows.length === 0) {
       const [result]: any = await connection.query(
         `
-        INSERT INTO Contact (email, phoneNumber, linkPrecedence)
+        INSERT INTO contact (email, phoneNumber, linkPrecedence)
         VALUES (?, ?, 'primary')
         `,
         [email ?? null, phoneNumber ?? null]
@@ -44,7 +44,7 @@ export const identifyContact = async (req: Request, res: Response) => {
       });
     }
 
-    // 3️⃣ Determine all related contact IDs
+
     let primaryContacts = matchedRows.filter(
       (c: any) => c.linkPrecedence === "primary"
     );
@@ -56,26 +56,25 @@ export const identifyContact = async (req: Request, res: Response) => {
       ];
 
       const [primaryRows]: any = await connection.query(
-        `SELECT * FROM Contact WHERE id IN (?)`,
+        `SELECT * FROM contact WHERE id IN (?)`,
         [primaryIds]
       );
 
       primaryContacts = primaryRows;
     }
 
-    // 4️⃣ Find oldest primary
     const oldestPrimary = primaryContacts.sort(
       (a: any, b: any) =>
         new Date(a.createdAt).getTime() -
         new Date(b.createdAt).getTime()
     )[0];
 
-    // 5️⃣ Merge multiple primaries if needed
+  
     for (const contact of primaryContacts) {
       if (contact.id !== oldestPrimary.id) {
         await connection.query(
           `
-          UPDATE Contact
+          UPDATE contact
           SET linkPrecedence = 'secondary',
               linkedId = ?
           WHERE id = ?
@@ -85,10 +84,10 @@ export const identifyContact = async (req: Request, res: Response) => {
       }
     }
 
-    // 6️⃣ Fetch all contacts related to oldestPrimary
+  
     const [allContacts]: any = await connection.query(
       `
-      SELECT * FROM Contact
+      SELECT * FROM contact
       WHERE (id = ? OR linkedId = ?)
       AND deletedAt IS NULL
       ORDER BY createdAt ASC
@@ -104,24 +103,23 @@ export const identifyContact = async (req: Request, res: Response) => {
       ...new Set(allContacts.map((c: any) => c.phoneNumber).filter(Boolean)),
     ];
 
-    // 7️⃣ If new info provided → create secondary
+
     if (
       (email && !existingEmails.includes(email)) ||
       (phoneNumber && !existingPhones.includes(phoneNumber))
     ) {
       await connection.query(
         `
-        INSERT INTO Contact (email, phoneNumber, linkPrecedence, linkedId)
+        INSERT INTO contact (email, phoneNumber, linkPrecedence, linkedId)
         VALUES (?, ?, 'secondary', ?)
         `,
         [email ?? null, phoneNumber ?? null, oldestPrimary.id]
       );
     }
 
-    // 8️⃣ Fetch again after possible insert
     const [finalContacts]: any = await connection.query(
       `
-      SELECT * FROM Contact
+      SELECT * FROM contact
       WHERE (id = ? OR linkedId = ?)
       AND deletedAt IS NULL
       ORDER BY createdAt ASC
