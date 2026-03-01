@@ -1,17 +1,14 @@
 import express from "express";
 import dotenv from "dotenv";
 import { pool } from "./db";
-import contactRoutes from './routes/contact'
+import contactRoutes from "./routes/contact";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("Bitespeed Identity Service Running");
-});
-
+// ✅ Keep only this one
 app.get("/", (req, res) => {
   res.send(`
     <html>
@@ -51,6 +48,7 @@ app.get("/", (req, res) => {
     </html>
   `);
 });
+
 app.use("/", contactRoutes);
 
 const PORT = process.env.PORT || 3000;
@@ -61,6 +59,6 @@ app.listen(PORT, async () => {
     console.log("Database Connected");
     console.log(`Server running on port ${PORT}`);
   } catch (err) {
-    console.error("Database connection failed");
+    console.error("Database connection failed", err);
   }
 });
